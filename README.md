@@ -16,7 +16,7 @@ Talkative is a real-time chat application built with Node.js, Express, MongoDB, 
 ## 📦 Tech Stack
 
 **Frontend**
-- HTML, CSS, JavaScript (Vanilla)
+- HTML, CSS, JavaScript (Vanilla), EJS
 - Bootstrap 5
 - Socket.IO client
 
