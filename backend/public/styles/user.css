@@ -1,0 +1,8 @@
+body, html {
+    overflow: hidden; /* This will prevent the page from scrolling */
+    height: 100%;     /* Ensure the body takes the full height */
+  }
+  .d-none {
+    display: none !important;
+  }
+  

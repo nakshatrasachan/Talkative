@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Signup - Talkative</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <style>
+    body {
+      background: linear-gradient(to right, #fbc2eb, #a6c1ee);
+    }
+    .card {
+      border-radius: 20px;
+      box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="container d-flex justify-content-center align-items-center vh-100">
+    <div class="card p-5 w-100" style="max-width: 400px;">
+      <h1 class="text-center mb-4">Signup</h1>
+      <form id="signupForm" method="POST" action="/signup">
+        <div class="mb-3">
+          <label for="username" class="form-label">Username</label>
+          <input type="text" name="username" class="form-control" id="username" required />
+        </div>
+        <div class="mb-4">
+          <label for="password" class="form-label">Password</label>
+          <input type="password" name="password" class="form-control" id="password" required />
+        </div>
+        <button type="submit" class="btn btn-primary w-100">Create Account</button>
+      </form>
+      <div class="text-center mt-3">
+        <small>Already have an account? <a href="/login">Login</a></small>
+      </div>
+    </div>
+  </div>
+
+  <!-- End-to-End Encryption Script -->
+  <script>
+    async function generateAndSubmitKeyPair(event) {
+      event.preventDefault();
+      const username = document.getElementById('username').value;
+      // console.log(username.value);
+      const keyPair = await window.crypto.subtle.generateKey(
+        {
+          name: "RSA-OAEP",
+          modulusLength: 2048,
+          publicExponent: new Uint8Array([1, 0, 1]),
+          hash: "SHA-256"
+        },
+        true,
+        ["encrypt", "decrypt"]
+      );
+
+      const exportedPublicKey = await window.crypto.subtle.exportKey("spki", keyPair.publicKey);
+      const publicKeyBase64 = btoa(String.fromCharCode(...new Uint8Array(exportedPublicKey)));
+
+      const exportedPrivateKey = await window.crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
+      const privateKeyBase64 = btoa(String.fromCharCode(...new Uint8Array(exportedPrivateKey)));
+
+      // Store private key in localStorage (can use IndexedDB for better security)
+      localStorage.setItem(`privateKeyPem${username}`, privateKeyBase64);
+
+      // Add public key to form
+      const form = document.getElementById("signupForm");
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = "publicKey";
+      input.value = publicKeyBase64;
+      form.appendChild(input);
+      console.log(form);
+     form.submit();
+    }
+
+    document.getElementById("signupForm").addEventListener("submit", generateAndSubmitKeyPair);
+  </script>
+</body>
+</html>

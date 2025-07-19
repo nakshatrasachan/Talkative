@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Talkative</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-SgOJa3DmI69IUzQ2PVdRZhwQ+dy64/BUtbMJw1MZ8t5HZApcHrRKUc4W0kG879m7" crossorigin="anonymous">
+    <link rel="stylesheet" href="/styles/user.css">
+</head>
+<body>
+<!-- Navbar -->
+<nav class="navbar navbar-expand-lg bg-body-tertiary border-bottom mb-3">
+    <div class="container-fluid">
+      <a class="navbar-brand">Talkative</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavAltMarkup"
+        aria-controls="navbarNavAltMarkup" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+  
+      <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
+        <div class="navbar-nav ms-auto me-5">
+          <% if (!isLoggedIn) { %>
+            <a class="nav-link" href="/login">Login</a>
+            <a class="nav-link" href="/signup">Signup</a>
+          <% } %>
+          <% if (isLoggedIn) { %>
+            <form method="POST" action="/logout" class="d-inline">
+              <button type="submit" class="nav-link btn btn-link p-0" style="text-decoration: none;">Logout</button>
+            </form>
+          <% } %>
+        </div>
+      </div>
+    </div>
+  </nav>
+  
+  <!-- Welcome Message -->
+  <!-- <% if (isLoggedIn) { %>
+    <div class="container mb-3">
+      <h2 class="text-center">Welcome, <%= username %>!</h2>
+    </div>
+  <% } %> -->
+  <div class="d-flex" style="height: 100vh; background-color: #f8f9fa;">
+    <!-- Contacts list -->
+    <div class="list-group border-end bg-white" style="width: 20vw; overflow-y: auto;">
+      <div class="list-group-item active text-center fw-bold" style="background-color: #007bff;">Contacts</div>
+      
+      <% contactData.forEach(data => { %>
+        <a href="/<%= userId %>/chat/<%= data.contact._id %>" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center <%= selectedContact && selectedContact._id.equals(data.contact._id) ? 'active' : '' %>">
+          <span><%= data.contact.username %></span>
+          <% if (data.unreadCount > 0) { %>
+            <span id="contactlist<%=data.contact._id%>" class="badge bg-danger rounded-pill"><%= data.unreadCount %></span>
+          <% } else{%>
+            <span id="contactlist<%=data.contact._id%>" style="display:none" class="badge bg-danger rounded-pill">0</span>
+
+            <% } %>
+        </a>
+      <% }) %>
+      
+    </div>
+  
+    <!-- Chat panel -->
+    <div class="flex-fill d-flex flex-column p-4">
+      <% if (selectedContact) { %>
+        <div class="border-bottom pb-2 mb-3">
+          <h5 class="mb-0">Chat with <%= selectedContact.username %></h5>
+        </div>
+      
+        <!-- Chat messages area -->
+        <div class="flex-fill overflow-auto px-2" style="max-height: 60vh; position: relative;">
+      
+          <% 
+            let currentDate = null;
+            const formatDate = (dateObj) => {
+              return new Date(dateObj).toLocaleDateString(undefined, {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+              });
+            };
+      
+            const formatTime = (dateObj) => {
+              return new Date(dateObj).toLocaleTimeString(undefined, {
+                hour: '2-digit',
+                minute: '2-digit'
+              });
+            };
+          %>
+      
+          <% for (let message of messages) { 
+            const messageDate = formatDate(message.timestamp);
+            const messageTime = formatTime(message.timestamp);
+            const isCurrentUser = message.sender._id.toString() === userId.toString();
+          %>
+          <%
+            const messageTimeDiffInSeconds = Math.abs(new Date(message.timestamp) - new Date()) / 1000;
+            const canDeleteForEveryone = isCurrentUser && messageTimeDiffInSeconds < 300;
+          %>
+            <% if (messageDate !== currentDate) { currentDate = messageDate; %>
+              <div class="text-center text-muted my-3">
+                <strong><%= currentDate %></strong>
+              </div>
+            <% } %>
+          
+            
+              <div data-message-id="<%= message._id%>" class="d-flex mb-2 <%= isCurrentUser ? 'justify-content-end' : 'justify-content-start' %>">
+                <% if (!message.deleted || !message.deleted.includes(userId)) { %>  
+                <div class="d-flex align-items-start" style="max-width: 75%;">
+                  <!-- Message bubble -->
+                  <div class="<%= isCurrentUser ? 'bg-primary text-white' : 'bg-light' %> p-2 rounded me-2" style="border: 1px solid;">
+                    <!-- <div><%= message.text %></div> -->
+                    <!-- <div class="decrypted-message" data-encrypedsender="<%=message.sendertext%>" data-encrypted="<%= message.receivertext %>">Decrypting...</div> -->
+                    <div id = "<%=message._id%>message" class="decrypted-message" data-messagesenderid="<%=message.sender._id%>"
+                    data-encrypted="<%= message.receivertext %>"
+                    data-senderencrypted="<%= message.sendertext %>"
+                    data-sender="<%= message.sender.toString() === userId.toString() %>">
+                    Decrypting...
+                    </div>
+               
+                  <div id="<%=message._id%>time" class="text-end small mt-1" style="font-size: 0.75rem;"><%= messageTime %></div>
+                </div>
+          
+                  <!-- Dropdown menu -->
+                  <div class="dropdown">
+                    <button class="btn btn-sm btn-light dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                      &vellip;
+                    </button>
+                    <ul class="dropdown-menu">
+                      <li>
+                        <form method="POST" target="hiddenFrame" action="/<%= userId %>/chat/<%= selectedContact._id %>/remove/<%= message._id %>">
+                          <button class="dropdown-item text-danger" type="submit">Delete For Me</button>
+                          </form>
+                          <%if(canDeleteForEveryone){%>
+                          <form id="delete" target="hiddenFrame" method="POST" action="/<%= userId %>/chat/<%= selectedContact._id %>/delete/<%= message._id %>">
+                            <button class="dropdown-item text-danger" type="submit">
+                            Delete For Everyone
+                          </button>
+                        </form>
+                        <%}%>
+                        <%if(canDeleteForEveryone){%>
+                          
+                          <button class="dropdown-item text-success edit-btn" data-message-id="<%= message._id %>">
+                            Edit
+                          </button>
+                          <button class="dropdown-item text-success save-btn d-none" data-message-id="<%= message._id %>">Save</button>
+                        
+                        <%}%>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+          
+              </div>
+           
+            <% } else{%>
+              
+                <!-- Message bubble -->
+                <div class="<%= isCurrentUser ? 'bg-secondary text-white' : 'bg-light text-muted' %> p-2 rounded fst-italic me-2" style="border: 1px dashed gray; font-size: 0.9rem;">
+                  <div>This message was deleted</div>
+                </div>
+                
+              </div>
+              <% } %>
+          <% } %>
+          
+        </div>
+      
+        <!-- Fixed bottom message input -->
+        <form id="messageForm" target="hiddenFrame" method="POST" action="/<%= userId %>/chat/<%= selectedContact._id %>/send" style="position: fixed; bottom: 0; left: 20vw; right: 0; background-color: #fff; padding: 1rem; border-top: 1px solid #ccc;">
+          <div class="d-flex gap-2">
+            <textarea id="messageInput" class="form-control" name="message" rows="2" style="resize: none;" placeholder="Type a message here" required></textarea>
+            <button type="submit" class="btn btn-success">Send</button>
+          </div>
+        </form>
+      <% } else { %>
+        <div class="flex-fill d-flex flex-column justify-content-center align-items-center text-center p-4">
+
+            <div class="alert alert-success alert-dismissible fade show w-75 mb-3 shadow-sm" role="alert">
+              <%= loginsuccess %> <%= signupsuccess %>
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>            
+          
+            <h4 class="text-muted fw-light">👋 Select a contact to start talking!</h4>
+          </div>
+        
+        
+      <% } %>
+      
+      
+    </div>
+  </div>
+  
+  
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.bundle.min.js" integrity="sha384-k6d4wzSIapyDyv1kpU366/PK5hCdSbCRGRCMv+eplOQJWyd1fbcAu9OCUj5zNLiq" crossorigin="anonymous"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <% if (selectedContact) { %>
+    <script>
+      const publicKeyBase64 = "<%= selectedContact.publicKey %>"; // MUST be in quotes
+      // const userId = "<%= userId %>";
+      // const contactId = "<%= selectedContact._id %>";
+    
+      async function importPublicKey(base64) {
+        const binaryDer = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+        return crypto.subtle.importKey(
+          "spki",
+          binaryDer,
+          {
+            name: "RSA-OAEP",
+            hash: "SHA-256"
+          },
+          true,
+          ["encrypt"]
+        );
+      }
+      const senderpublicKeyBase64 = "<%= user.publicKey %>";
+      document.getElementById('messageForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const message = document.getElementById('messageInput').value;
+        const publicKey = await importPublicKey(publicKeyBase64);
+        const senderpublicKey = await importPublicKey(senderpublicKeyBase64);
+    
+        const encodedMessage = new TextEncoder().encode(message);
+        const encrypted = await crypto.subtle.encrypt({ name: "RSA-OAEP" }, publicKey, encodedMessage);
+        const encryptedBase64 = btoa(String.fromCharCode(...new Uint8Array(encrypted)));
+        const senderencrypted = await crypto.subtle.encrypt({ name: "RSA-OAEP" }, senderpublicKey, encodedMessage);
+        const senderencryptedBase64 = btoa(String.fromCharCode(...new Uint8Array(senderencrypted)));
+        
+        const response = await fetch(`/${userId}/chat/${contactId}/send`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: encryptedBase64, sendermessage:senderencryptedBase64 })
+        });
+    
+        const result = await response.json();
+        if (result.success) {
+          document.getElementById('messageInput').value = '';
+        }
+      });
+    </script>
+    <% } %>
+    
+    <script>
+      async function importPrivateKey(base64) {
+        const binaryDer = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+        return crypto.subtle.importKey(
+          "pkcs8",
+          binaryDer,
+          {
+            name: "RSA-OAEP",
+            hash: "SHA-256"
+          },
+          true,
+          ["decrypt"]
+        );
+      }
+    
+      async function decryptMessage(privateKey, encryptedBase64) {
+        
+        const encryptedBytes = Uint8Array.from(atob(encryptedBase64), c => c.charCodeAt(0));
+        console.log(encryptedBytes);
+        console.log(privateKey);
+        const decrypted = await crypto.subtle.decrypt(
+          { name: "RSA-OAEP" },
+          privateKey,
+          encryptedBytes
+        );
+        console.log(decrypted);
+        return new TextDecoder().decode(decrypted);
+      }
+    
+      window.addEventListener("DOMContentLoaded", async () => {
+        const privateKeyBase64 = localStorage.getItem("privateKeyPem<%=username%>");
+        if (!privateKeyBase64) {
+          console.warn("Private key not found in localStorage.");
+          return;
+        }
+    
+        const privateKey = await importPrivateKey(privateKeyBase64);
+        // const senderprivateKey = await importPrivateKey(senderprivateKeyBase64);
+        console.log(privateKey);
+        const elements = document.querySelectorAll(".decrypted-message");
+    
+        for (const el of elements) {
+          console.log(el);console.log(userId);
+          const encrypted = el.dataset.messagesenderid===userId?el.dataset.senderencrypted:el.dataset.encrypted;
+          console.log(encrypted);
+          console.log(privateKey);
+          try {
+            
+            const decrypted = await decryptMessage(privateKey, encrypted);
+            el.textContent = decrypted;
+          } catch (err) {
+            console.error("Failed to decrypt:", err);
+            el.textContent = "Unable to decrypt";
+          }
+        }
+      });
+    </script>
+    <!-- Edit Message ------------------------------------------------->
+     <%if(selectedContact){%>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        document.querySelectorAll(".edit-btn").forEach(button => {
+          button.addEventListener("click", e => {
+            const messageId = e.target.dataset.messageId;
+            const messageDiv = document.getElementById(`${messageId}message`);
+            messageDiv.setAttribute("contenteditable", "true");
+            messageDiv.focus();
+            console.log('Edit Clicked');
+            // Show Save button
+            document.querySelector(`.save-btn[data-message-id="${messageId}"]`).classList.remove("d-none");
+            e.target.classList.add("d-none");
+          });
+        });
+    
+        document.querySelectorAll(".save-btn").forEach(button => {
+          button.addEventListener("click", async e => {
+            const messageId = e.target.dataset.messageId;
+            const messageDiv = document.getElementById(`${messageId}message`);
+            const message = messageDiv.textContent.trim();
+            console.log('Save Clicked');
+            // Send edited text to server
+            //const message = document.getElementById('messageInput').value;
+            
+        const publicKey = await importPublicKey(publicKeyBase64);
+        const senderpublicKey = await importPublicKey(senderpublicKeyBase64);
+    
+        const encodedMessage = new TextEncoder().encode(message);
+        const encrypted = await crypto.subtle.encrypt({ name: "RSA-OAEP" }, publicKey, encodedMessage);
+        const encryptedBase64 = btoa(String.fromCharCode(...new Uint8Array(encrypted)));
+        const senderencrypted = await crypto.subtle.encrypt({ name: "RSA-OAEP" }, senderpublicKey, encodedMessage);
+        const senderencryptedBase64 = btoa(String.fromCharCode(...new Uint8Array(senderencrypted)));
+        const sender = "<%=user._id%>";
+        const senderusername = "<%=username%>";
+        const receivername = "<%=receivername%>";
+        const receiver = "<%=selectedContact._id%>";
+            const res = await fetch(`/${sender}/chat/${receiver}/edit/:message_id`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({ senderusername,receivername,sender,receiver,messageId,message: encryptedBase64, sendermessage:senderencryptedBase64 })
+              //body: JSON.stringify({ messageId, newText })
+            });
+    
+            const result = await res.json();
+            if (result.success) {
+              messageDiv.removeAttribute("contenteditable");
+              e.target.classList.add("d-none");
+              document.querySelector(`.edit-btn[data-message-id="${messageId}"]`).classList.remove("d-none");
+              const timediv = document.getElementById(`${messageId}time`);
+              
+            } else {
+              alert("Failed to save message.");
+            }
+          });
+        });
+      });
+    </script>
+    <%}%>
+    <% if (selectedContact) { %>
+  <script>
+    const socket = io();
+  
+    const userId = "<%= userId %>";
+    socket.emit('registerUser', userId);
+    const contactId = "<%= selectedContact ? selectedContact._id : '' %>";
+    const username = "<%= username %>";
+    const contactUsername = "<%= selectedContact ? selectedContact.username : '' %>";
+    const roomId = [userId.toString(), contactId.toString()].sort().join('-');
+    const textarea = document.querySelector('textarea[name="message"]');
+   
+    console.log(contactId);
+      if (contactId) {
+
+      socket.emit('joinRoom', roomId);
+  
+      const form = document.getElementById('messageForm');
+      const messageInput = document.getElementById('messageInput');
+      
+      // form.addEventListener('submit', function (e) {
+      //   const messageText = messageInput.value.trim();
+      //   const timestamp = new Date();
+  
+      //   // Don't block the POST — allow it to go to the server for saving
+      //   // Instead, just piggyback off the message content to emit
+      //   socket.emit('sendMessage', {
+      //     roomId,
+      //     text: messageText,
+      //     senderId: userId,
+      //     senderName: username,
+      //     timestamp,
+      //   });
+      // });
+  
+      // socket.on('sendMessage', (data) => {
+      //    if (data.senderId !== userId) {
+      //     addMessageToChat(false, data.text, data.messageId, data.senderId,data.contactId,data.timestamp);
+          
+      //    }
+      //    else{
+      //     addMessageToChat(true, data.text, data.messageId, data.senderId,data.contactId,data.timestamp);
+      //    }
+      //   console.log('ReceiveMessage');
+      // });
+      socket.on('sendMessage', async (data) => {
+  // let textToShow = data.text;
+  console.log("Received Message:", data);
+  console.log("Current userId:", userId);
+  // Decrypt message only if you're the recipient
+  console.log("sendMessageReceived");
+    try {
+      const privateKeyPem = localStorage.getItem(`privateKeyPem${username}`);
+      console.log(privateKeyPem);
+      if (privateKeyPem) {
+        const privateKey = await importPrivateKey(privateKeyPem);
+        textToShow = await decryptMessage(privateKey, userId===data.senderId?data.sendertext:data.receivertext);
+        console.log(textToShow);
+      } else {
+        console.warn("Private key not found in localStorage.");
+      }
+    } catch (error) {
+      console.error("Error decrypting message:", error);
+      textToShow = "[Unable to decrypt]"; // Display this if decryption fails
+    }
+    
+    // const publicKey = await importPublicKey(publicKeyBase64);
+    // const senderpublicKey = await importPublicKey(senderpublicKeyBase64);
+
+    // const encodedMessage = new TextEncoder().encode(textToShow);
+    // const encrypted = await crypto.subtle.encrypt({ name: "RSA-OAEP" }, publicKey, encodedMessage);
+    // const encryptedBase64 = btoa(String.fromCharCode(...new Uint8Array(encrypted)));
+
+    // const senderencrypted = await crypto.subtle.encrypt({ name: "RSA-OAEP" }, senderpublicKey, encodedMessage);
+    // const senderencryptedBase64 = btoa(String.fromCharCode(...new Uint8Array(senderencrypted)));
+
+  // Add message to chat window
+    addMessageToChat(data.senderId === userId, textToShow, data.messageId, data.senderId, data.contactId, data.timestamp);
+});
+
+      // const chatBox = document.querySelector('.flex-fill.overflow-auto');
+      
+////////*//***************************************************************************
+//EDIT
+socket.on("messageEdited", async data => {
+  const messageDiv = document.getElementById(`${data.messageId}message`);
+  console.log(messageDiv);
+  if (!messageDiv) return;
+  console.log("MessageEditedReceived");
+  // const senderId = messageDiv.dataset.messagesenderid;
+  const currentUserId = "<%=userId%>";
+  console.log("currentuserid",currentUserId);
+if(data.receiverId===currentUserId){
+  const encrypted = data.receivertext;
+
+  const privateKeyBase64 = localStorage.getItem(`privateKeyPem${data.receivername}`);
+  if (!privateKeyBase64) return;
+
+  const privateKey = await importPrivateKey(privateKeyBase64);
+console.log("receiverprimarykey:",privateKey);
+  try {
+    const decrypted = await decryptMessage(privateKey, encrypted);
+    messageDiv.textContent = decrypted;
+    console.log(decrypted);
+  } catch (err) {
+    messageDiv.textContent = "Unable to decrypt";
+  }
+}
+});
+
+
+};//If(contact) close
+      window.onload = () => {
+      const chatBox = document.querySelector('.flex-fill.overflow-auto');
+
+      if (chatBox) {
+        // Small delay ensures that messages are fully rendered
+        setTimeout(() => {
+          chatBox.scrollTop = chatBox.scrollHeight;
+          window.scrollTo(0, document.body.scrollHeight);
+        }, 5);
+      }
+    };
+
+      // function addMessageToChat(isCurrentUser, text, messageId, userId,contactId,timestamp) {
+      //   const chatBox = document.querySelector('.flex-fill.overflow-auto');
+      //   const msgWrapper = document.createElement('div');
+      //   const textarea = document.getElementById('messageInput');
+      //   textarea.value="";
+      //   const formattedTime = new Date(timestamp).toLocaleTimeString([], {
+      //     hour: '2-digit',
+      //     minute: '2-digit'
+      //   });
+      //   console.log(userId);
+      //   console.log(contactId);
+      //   const canDelete =  Math.abs(new Date(timestamp) - new Date()) / 1000;
+      //   msgWrapper.className = `d-flex mb-2 ${isCurrentUser ? 'justify-content-end' : 'justify-content-start'}`;
+      //   msgWrapper.innerHTML = `
+      //     <div data-message-id="${messageId}" class="${isCurrentUser ? 'bg-primary text-white' : 'bg-light'} p-2 rounded" style="max-width: 75%; border:1px solid">
+      //       <div>${text}</div>
+      //       <div class="text-end small mt-1" style="font-size: 0.75rem;">${formattedTime}</div></div>
+      //       <div id="${messageId}dropdown" class="dropdown">
+      //               <button class="btn btn-sm btn-light dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+      //                 &vellip;
+      //               </button>
+      //               <ul class="dropdown-menu">
+      //                 <li>
+      //                   <form method="POST" target="hiddenFrame" action="/${isCurrentUser?userId:contactId}/chat/${isCurrentUser?contactId:userId}/remove/${messageId}">
+      //                     <button class="dropdown-item text-danger" type="submit">Delete For Me</button>
+      //                     </form>
+                          
+      //                 </li>
+                      
+      //                 <li class="${isCurrentUser && canDelete?'':'d-none'}">
+      //                   <form method="POST" target="hiddenFrame" action="/${isCurrentUser?userId:contactId}/chat/${isCurrentUser?contactId:userId}/delete/${messageId}">
+      //                     <button class="dropdown-item text-danger" type="submit">Delete For Everyone</button>
+      //                     </form>
+                          
+      //                 </li>
+      //               </ul>
+      //             </div>
+      //   `;
+      //   chatBox.appendChild(msgWrapper);
+      //   chatBox.scrollTop = chatBox.scrollHeight;
+      // }
+  
+  async function addMessageToChat(isCurrentUser, text, messageId, userId, contactId, timestamp){
+  const chatBox = document.querySelector('.flex-fill.overflow-auto');
+  const msgWrapper = document.createElement('div');
+  const textarea = document.getElementById('messageInput');
+  
+  textarea.value = "";
+  
+  
+  const formatDate = (dateObj) => {
+    return new Date(dateObj).toLocaleDateString("en-GB", {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  
+
+  const newmessageDate = formatDate(new Date());
+           
+         
+            
+          
+  const formattedTime = new Date(timestamp).toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  msgWrapper.className = `d-flex mb-2 ${isCurrentUser ? 'justify-content-end' : 'justify-content-start'}`;
+
+  let displayText = text;
+
+  // Decrypt if this user is the sender (this might be redundant for already sent messages)
+  
+    // try {
+    //   const privateKeyPem = localStorage.getItem("privateKeyPem");
+    //   if (privateKeyPem) {
+    //     const privateKey = await importPrivateKey(privateKeyPem);
+    //     displayText = await decryptMessage(privateKey, text);
+    //   }
+    // } catch (err) {
+    //   console.error("Decryption failed for sender's message", err);
+    //   displayText = "[Unable to decrypt]"; // Display this if decryption fails
+    // }
+  
+
+  msgWrapper.innerHTML = `
+    <div data-message-id="${messageId}" class="${isCurrentUser ? 'bg-primary text-white' : 'bg-light'} p-2 rounded" style="max-width: 75%; border:1px solid">
+      <div id="${messageId}message">${displayText}</div>
+      <div id="${messageId}time" class="text-end small mt-1" style="font-size: 0.75rem;">${formattedTime}</div>
+    </div>
+    <div id="${messageId}dropdown" class="dropdown">
+      <button class="btn btn-sm btn-light dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+        &vellip;
+      </button>
+      <ul class="dropdown-menu">
+        <li>
+          <form method="POST" target="hiddenFrame" action="/${isCurrentUser ? userId : contactId}/chat/${isCurrentUser ? contactId : userId}/remove/${messageId}">
+            <button class="dropdown-item text-danger" type="submit">Delete For Me</button>
+          </form>
+        </li>
+        <li class="${isCurrentUser && Math.abs(new Date(timestamp) - new Date()) / 1000 < 300 ? '' : 'd-none'}">
+          <form method="POST" target="hiddenFrame" action="/${isCurrentUser ? userId : contactId}/chat/${isCurrentUser ? contactId : userId}/delete/${messageId}">
+            <button class="dropdown-item text-danger" type="submit">Delete For Everyone</button>
+          </form>
+        </li>
+        <li id = "${messageId}edit" class="${isCurrentUser && Math.abs(new Date(timestamp) - new Date()) / 1000 < 300 ? '' : 'd-none'}">
+          
+                          
+          <button id = "new" class="dropdown-item text-success edit-btn" data-message-id="${messageId}">
+            Edit
+          </button>
+          <button class="dropdown-item text-success save-btn d-none" data-message-id="${messageId}">Save</button>
+        
+                       
+        </li>
+      </ul>
+    </div>
+  `;
+// const timehead=document.createElement("div");
+// timehead.innerHTML=`<div class="text-center text-muted my-3">
+//                 <strong>${newmessageDate}</strong>
+//               </div>`
+//               chatBox.appendChild(timehead);
+  chatBox.appendChild(msgWrapper);
+  chatBox.scrollTop = chatBox.scrollHeight;
+  const neweditbutton=document.getElementById("new");
+          neweditbutton.addEventListener("click", e => {
+            const messageId = e.target.dataset.messageId;
+            const messageDiv = document.getElementById(`${messageId}message`);
+            messageDiv.setAttribute("contenteditable", "true");
+            messageDiv.focus();
+            console.log('Edit Clicked');
+            // Show Save button
+            document.querySelector(`.save-btn[data-message-id="${messageId}"]`).classList.remove("d-none");
+            e.target.classList.add("d-none");
+          });
+        
+    
+        document.querySelectorAll(".save-btn").forEach(button => {
+          button.addEventListener("click", async e => {
+            const messageId = e.target.dataset.messageId;
+            const messageDiv = document.getElementById(`${messageId}message`);
+            const message = messageDiv.textContent.trim();
+            console.log('Save Clicked');
+            // Send edited text to server
+            //const message = document.getElementById('messageInput').value;
+            
+        const publicKey = await importPublicKey(publicKeyBase64);
+        const senderpublicKey = await importPublicKey(senderpublicKeyBase64);
+    
+        const encodedMessage = new TextEncoder().encode(message);
+        const encrypted = await crypto.subtle.encrypt({ name: "RSA-OAEP" }, publicKey, encodedMessage);
+        const encryptedBase64 = btoa(String.fromCharCode(...new Uint8Array(encrypted)));
+        const senderencrypted = await crypto.subtle.encrypt({ name: "RSA-OAEP" }, senderpublicKey, encodedMessage);
+        const senderencryptedBase64 = btoa(String.fromCharCode(...new Uint8Array(senderencrypted)));
+        const sender = "<%=user._id%>";
+        const senderusername = "<%=username%>";
+        
+        const receiver = "<%=selectedContact._id%>";
+        console.log(selectedContact);
+        const receivername = "<%=receivername%>";
+        
+        
+            const res = await fetch(`/${sender}/chat/${receiver}/edit/:message_id`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({ senderusername,receivername,sender,receiver,messageId,message: encryptedBase64, sendermessage:senderencryptedBase64 })
+              //body: JSON.stringify({ messageId, newText })
+            });
+    
+            const result = await res.json();
+            if (result.success) {
+              messageDiv.removeAttribute("contenteditable");
+              e.target.classList.add("d-none");
+              document.querySelector(`.edit-btn[data-message-id="${messageId}"]`).classList.remove("d-none");
+              const timediv = document.getElementById(`${messageId}time`);
+              
+            } else {
+              alert("Failed to save message.");
+            }
+          });
+        });
+  // Attach event listeners to newly added buttons
+
+//   const editBtn = msgWrapper.querySelector(".edit-btn");
+//   const saveBtn = msgWrapper.querySelector(".save-btn");
+
+//   editBtn.addEventListener("click", e => {
+//     const messageId = e.target.dataset.messageId;
+//     const messageDiv = document.getElementById(`${messageId}message`);
+//     messageDiv.setAttribute("contenteditable", "true");
+//     messageDiv.focus();
+//     console.log('Edit Clicked (Dynamically Added)');
+//     saveBtn.classList.remove("d-none");
+//     editBtn.classList.add("d-none");
+//   });
+//   console.log(selectedContact);
+// if(selectedContact){
+//   saveBtn.addEventListener("click", async e => {
+//     const messageId = e.target.dataset.messageId;
+//     const messageDiv = document.getElementById(`${messageId}message`);
+//     const message = messageDiv.textContent.trim();
+
+
+//     const sender = userId;
+//     const receiver = contactId;
+    
+//     const res = await fetch(`/${sender}/chat/${receiver}/edit/${messageId}`, {
+//       method: "POST",
+//       headers: {
+//         "Content-Type": "application/json"
+//       },
+//       body: JSON.stringify({ sender, receiver, messageId, message: encryptedBase64, sendermessage: senderencryptedBase64 })
+//     });
+
+//     const result = await res.json();
+//     if (result.success) {
+//       messageDiv.removeAttribute("contenteditable");
+//       saveBtn.classList.add("d-none");
+//       editBtn.classList.remove("d-none");
+//     } else {
+//       alert("Failed to save message.");
+//     }
+//   });
+    
+// }
+  }
+ 
+
+      
+        socket.on('messageNotify',(obj)=>{
+        console.log('Notified');
+        // console.log(obj.userId);
+        const contactDivSpan = document.getElementById(`contactlist${obj.userId}`);
+        contactDivSpan.style.display="";
+        console.log(contactDivSpan);
+    
+        contactDivSpan.textContent=parseInt(contactDivSpan.textContent)+1;
+      });
+      /// chat opened
+
+      socket.on('messageOpen',(obj)=>{
+        console.log('Notified');
+        // console.log(obj.userId);
+        const contactDivSpan = document.getElementById(`contactlist${obj.userId}`);
+        
+        console.log(contactDivSpan);
+        contactDivSpan.style.display="none";
+      });
+      //Typing....
+      let typingTimeout;
+
+    textarea.addEventListener('input', () => {
+      socket.emit('typing', { roomId, sender: "<%= username %>" });
+
+      clearTimeout(typingTimeout);
+      typingTimeout = setTimeout(() => {
+        socket.emit('stopTyping', { roomId });
+      }, 2000);
+    });
+
+    socket.on('typing', (sender) => {
+      if (!document.getElementById('typing-indicator')) {
+        const typingDiv = document.createElement('div');
+        typingDiv.id = 'typing-indicator';
+        typingDiv.className = 'text-muted small mt-2';
+        typingDiv.textContent = `${sender} is typing...`;
+        document.querySelector('.flex-fill.overflow-auto.px-2').appendChild(typingDiv);
+      }
+    });
+
+    socket.on('stopTyping', () => {
+      const typingDiv = document.getElementById('typing-indicator');
+      if (typingDiv) typingDiv.remove();
+    });
+
+socket.on("messageDeletedForMe", ({ messageId }) => {
+  const messageDiv = document.querySelector(`[data-message-id="${messageId}"]`);
+  const dropdownDiv = document.querySelector(`[id="${messageId}dropdown"]`);
+
+  if (messageDiv) {
+    messageDiv.classList.remove("bg-primary");
+    messageDiv.classList.remove("text-white");
+    messageDiv.classList.remove("p-2");
+    messageDiv.classList.remove("rounded");
+    messageDiv.style.border = "none";
+
+    messageDiv.innerHTML = `
+      <div class="bg-secondary text-white p-2 rounded fst-italic me-2" style="border: 1px dashed gray; font-size: 0.9rem;">
+        <div>This message was deleted</div>
+      </div>
+    `;
+  }
+
+  if (dropdownDiv) {
+    dropdownDiv.style.display = "none";
+  }
+});
+// Delete for everyone
+      socket.on('messageDeleted', ({ messageId , sender}) => {
+      console.log("Reached");
+      const messageDiv = document.querySelector(`[data-message-id="${messageId}"]`);
+      const dropdownDiv = document.querySelector(`[id="${messageId}dropdown"]`);
+      console.log("Found div:", messageDiv);
+      if (messageDiv) {
+        
+        messageDiv.classList.remove("bg-primary");
+        messageDiv.classList.remove("text-white");
+        messageDiv.classList.remove("p-2");
+        messageDiv.classList.remove("rounded");
+        messageDiv.style.border="none";
+        messageDiv.innerHTML = `
+          <div class="${sender===userId?'bg-secondary text-white' : 'bg-light text-muted'} p-2 rounded fst-italic me-2" style="border: 1px dashed gray; font-size: 0.9rem;">
+                  <div>This message was deleted</div>
+                </div>
+        `;
+        
+        dropdownDiv.style.display="none";
+      }
+    });
+    
+
+
+    
+ 
+
+
+  </script>
+  <%}%>
+  <iframe name="hiddenFrame" style="display: none;"></iframe>
+</body>
+</html>
